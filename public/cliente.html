@@ -29,7 +29,8 @@
         .btn-setor.entrada:hover { border-color: #10b981; color: #10b981; background: #ecfdf5; transform: translateY(-3px); box-shadow: 0 8px 16px rgba(16, 185, 129, 0.15); }
         .btn-setor.saida:hover { border-color: #f43f5e; color: #f43f5e; background: #fff1f2; transform: translateY(-3px); box-shadow: 0 8px 16px rgba(244, 63, 94, 0.15); }
 
-        textarea { width: 100%; padding: 16px; border: 2px solid #e2e8f0; border-radius: 12px; font-family: 'Inter', sans-serif; font-size: 15px; color: #334155; transition: all 0.3s ease; box-sizing: border-box; background-color: #f8fafc; margin-bottom: 20px; resize: none; }
+        /* AQUI: Fonte da caixa de texto aumentada para 18px */
+        textarea { width: 100%; padding: 16px; border: 2px solid #e2e8f0; border-radius: 12px; font-family: 'Inter', sans-serif; font-size: 18px; color: #334155; transition: all 0.3s ease; box-sizing: border-box; background-color: #f8fafc; margin-bottom: 20px; resize: none; }
         textarea:focus { border-color: #6366f1; outline: none; box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1); background-color: #ffffff; }
 
         .btn-enviar { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; padding: 16px; border-radius: 12px; width: 100%; font-weight: 600; font-size: 16px; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25); }
@@ -86,7 +87,7 @@
 </div>
 
 <script>
-    let chamadosAtivos = {};
+    let chamadosAtivos = JSON.parse(localStorage.getItem('chamadosAtivos')) || {};
     let timerMonitoramento = null;
     let fluxoAtual = { admin: '', btnAdminId: '', maquinaBase: '', setor: '', clienteFinal: '' };
 
@@ -99,6 +100,22 @@
         btn.onclick = () => selecionarMaquina(nome);
         gradeMaquinas.appendChild(btn);
     });
+
+    function verificarMemoria() {
+        const adminsEmAtendimento = Object.keys(chamadosAtivos);
+        if (adminsEmAtendimento.length > 0) {
+            adminsEmAtendimento.forEach(admin => {
+                const btn = document.getElementById(chamadosAtivos[admin].botaoId);
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = `⏳ Aguardando...`;
+                }
+            });
+            iniciarMonitoramento();
+        }
+    }
+    
+    verificarMemoria();
 
     function irParaPasso(passo) {
         document.querySelectorAll('.step').forEach(el => el.classList.remove('active'));
@@ -137,6 +154,13 @@
         const admin = fluxoAtual.admin;
         const btn = document.getElementById(fluxoAtual.btnAdminId);
 
+        // AQUI: A Janela de confirmação em duas etapas
+        const mensagemConfirmacao = `Confirme os dados do chamado:\n\n🛠️ Departamento: ${admin}\n📍 Máquina: ${fluxoAtual.clienteFinal}\n⚠️ Problema: ${problema}\n\nDeseja realmente enviar este chamado?`;
+        
+        if (!confirm(mensagemConfirmacao)) {
+            return; // Se o usuário clicar em "Cancelar", a função para aqui e não envia.
+        }
+
         try {
             const response = await fetch('/api/chamados/abrir', {
                 method: 'POST',
@@ -145,7 +169,10 @@
             });
 
             const id = await response.text();
+            
             chamadosAtivos[admin] = { id: id, botaoId: fluxoAtual.btnAdminId };
+            localStorage.setItem('chamadosAtivos', JSON.stringify(chamadosAtivos));
+            
             btn.disabled = true;
             btn.innerHTML = `⏳ Aguardando...`;
 
@@ -160,7 +187,12 @@
         if (timerMonitoramento) return;
         timerMonitoramento = setInterval(async () => {
             const adminsEmAtendimento = Object.keys(chamadosAtivos);
-            if (adminsEmAtendimento.length === 0) { clearInterval(timerMonitoramento); timerMonitoramento = null; return; }
+            
+            if (adminsEmAtendimento.length === 0) { 
+                clearInterval(timerMonitoramento); 
+                timerMonitoramento = null; 
+                return; 
+            }
 
             for (let admin of adminsEmAtendimento) {
                 const dados = chamadosAtivos[admin];
@@ -172,15 +204,17 @@
                             alert(`Boas notícias! A equipe de ${admin} já atendeu o chamado e ESTÁ A CAMINHO!`);
 
                             const btn = document.getElementById(dados.botaoId);
-                            btn.disabled = false;
-
-                            let emoji = '⚡';
-                            if(admin === 'Mecânica') emoji = '🔧';
-                            if(admin === 'Coordenador') emoji = '👷‍♂️';
-                            if(admin === 'Qualidade') emoji = '🔎';
-                            btn.innerHTML = `<span style="font-size: 24px;">${emoji}</span> ${admin}`;
+                            if(btn) {
+                                btn.disabled = false;
+                                let emoji = '⚡';
+                                if(admin === 'Mecânica') emoji = '🔧';
+                                if(admin === 'Coordenador') emoji = '👷‍♂️';
+                                if(admin === 'Qualidade') emoji = '🔎';
+                                btn.innerHTML = `<span style="font-size: 24px;">${emoji}</span> ${admin}`;
+                            }
 
                             delete chamadosAtivos[admin];
+                            localStorage.setItem('chamadosAtivos', JSON.stringify(chamadosAtivos));
                         }
                     }
                 } catch (error) { console.error("Erro na sincronização", error); }
