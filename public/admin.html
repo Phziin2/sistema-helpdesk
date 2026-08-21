@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Departamental</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #f6f8fd 0%, #f1f5f9 100%); min-height: 100vh; margin: 0; display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; }
+        .container { background: #ffffff; padding: 40px 30px; border-radius: 24px; width: 100%; max-width: 440px; box-shadow: 0 20px 40px rgba(0,0,0,0.06); overflow: hidden; position: relative; }
+        h2 { color: #1e293b; margin-top: 0; font-weight: 700; font-size: 22px; text-align: center; margin-bottom: 25px; }
+        .subtitle { text-align: center; color: #64748b; font-size: 14px; margin-bottom: 20px; font-weight: 500; }
+        .step { display: none; animation: fadeIn 0.4s ease forwards; }
+        .step.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: translateX(0); } }
+
+        .grid-admins { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .btn-admin { background: #f8fafc; border: 2px solid #e2e8f0; color: #334155; padding: 20px 10px; border-radius: 16px; font-weight: 600; font-size: 15px; cursor: pointer; transition: all 0.2s ease; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+        .btn-admin:hover { border-color: #6366f1; color: #6366f1; background: #eef2ff; transform: translateY(-3px); }
+
+        .header-painel { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #e2e8f0; }
+        .admin-nome { font-weight: 700; color: #6366f1; font-size: 18px; }
+        .btn-sair { background: none; border: none; color: #ef4444; font-size: 13px; font-weight: 600; cursor: pointer; padding: 5px 10px; border-radius: 6px; transition: 0.2s; }
+        .btn-sair:hover { background: #fee2e2; }
+
+        /* AQUI: Fonte aumentada para 18px, altura um pouco maior e espaçamento entre linhas (line-height) para facilitar leitura */
+        .log-box { background: #0f172a; color: #38bdf8; padding: 20px; height: 200px; overflow-y: auto; margin-bottom: 24px; border-radius: 12px; font-family: 'Courier New', Courier, monospace; font-size: 18px; line-height: 1.5; white-space: pre-wrap; box-sizing: border-box; }
+
+        .botoes-grid { display: flex; gap: 12px; }
+        .btn-acao { flex: 1; padding: 14px; border: none; color: white; font-weight: 600; cursor: pointer; border-radius: 12px; font-size: 14px; transition: all 0.2s ease; }
+        .btn-acao:disabled { background: #cbd5e1 !important; color: #94a3b8 !important; cursor: not-allowed; transform: none !important; }
+        .btn-acao:hover:not(:disabled) { transform: translateY(-2px); }
+        .btn-caminho { background: linear-gradient(135deg, #10b981 0%, #059669 100%); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25); }
+        .btn-resolver { background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25); }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- PASSO 1: TELA DE LOGIN -->
+    <div id="tela-login" class="step active">
+        <h2>Acesso da Equipe</h2>
+        <div class="subtitle">Selecione seu departamento</div>
+        <div class="grid-admins">
+            <button class="btn-admin" onclick="fazerLogin('Elétrica')"><span style="font-size: 24px;">⚡</span> Elétrica</button>
+            <button class="btn-admin" onclick="fazerLogin('Mecânica')"><span style="font-size: 24px;">🔧</span> Mecânica</button>
+            <button class="btn-admin" onclick="fazerLogin('Coordenador')"><span style="font-size: 24px;">👷‍♂️</span> Coordenador</button>
+            <button class="btn-admin" onclick="fazerLogin('Qualidade')"><span style="font-size: 24px;">🔎</span> Qualidade</button>
+        </div>
+    </div>
+
+    <!-- PASSO 2: PAINEL INDIVIDUAL DO ADMIN -->
+    <div id="tela-painel" class="step">
+        <div class="header-painel">
+            <div class="admin-nome" id="nomeAdminLogado">Carregando...</div>
+            <button class="btn-sair" onclick="fazerLogout()">Sair 🚪</button>
+        </div>
+        <div class="log-box" id="logBox">Sessão iniciada. Aguardando chamados da produção...</div>
+        <div class="botoes-grid">
+            <button id="btnCaminho" class="btn-acao btn-caminho" disabled onclick="avisarCaminho()">A Caminho</button>
+            <button id="btnResolver" class="btn-acao btn-resolver" disabled onclick="resolverChamado()">Resolvido</button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    let meuNome = null;
+    let idChamadoAtivo = null;
+    let dadosChamadoAtivo = null; // NOVO: Variável para guardar os detalhes do chamado
+    let loopMonitoramento = null;
+
+    window.onload = () => {
+        const adminSalvo = localStorage.getItem('adminLogado');
+        if (adminSalvo) fazerLogin(adminSalvo);
+    };
+
+    function fazerLogin(nome) {
+        meuNome = nome;
+        localStorage.setItem('adminLogado', nome);
+        document.getElementById('nomeAdminLogado').innerText = `Setor: ${nome}`;
+        document.getElementById('tela-login').classList.remove('active');
+        document.getElementById('tela-painel').classList.add('active');
+        iniciarMonitoramento();
+    }
+
+    function fazerLogout() {
+        localStorage.removeItem('adminLogado');
+        meuNome = null;
+        clearInterval(loopMonitoramento);
+        resetarPainel();
+        document.getElementById('tela-painel').classList.remove('active');
+        document.getElementById('tela-login').classList.add('active');
+    }
+
+    function resetarPainel() {
+        idChamadoAtivo = null;
+        dadosChamadoAtivo = null;
+        document.getElementById('logBox').innerText = 'Sessão iniciada. Aguardando chamados da produção...';
+        document.getElementById('btnCaminho').disabled = true;
+        document.getElementById('btnResolver').disabled = true;
+    }
+
+    function iniciarMonitoramento() {
+        loopMonitoramento = setInterval(async () => {
+            if (idChamadoAtivo || !meuNome) return;
+
+            try {
+                const response = await fetch(`/api/chamados/pendente/${encodeURIComponent(meuNome)}`);
+                if (response.status === 200) {
+                    const chamado = await response.json();
+
+                    idChamadoAtivo = chamado.id;
+                    dadosChamadoAtivo = chamado; // Guardando a máquina e o problema na memória
+
+                    document.getElementById('logBox').innerText = `🚨 NOVO CHAMADO RECEBIDO!\n\nID: #${chamado.id.substring(chamado.id.length - 6)}\nMáquina: ${chamado.maquina}\nProblema: ${chamado.problema}`;
+                    document.getElementById('btnCaminho').disabled = false;
+                }
+            } catch (error) { console.error("Erro ao buscar", error); }
+        }, 3000);
+    }
+
+    async function avisarCaminho() {
+        await fetch(`/api/chamados/atender/${idChamadoAtivo}`, { method: 'POST' });
+        document.getElementById('btnCaminho').disabled = true;
+        document.getElementById('btnResolver').disabled = false;
+        document.getElementById('logBox').innerText += '\n\n[STATUS] ✓ Você sinalizou que a equipe está a caminho.';
+    }
+
+    async function resolverChamado() {
+        // AQUI: Janela de confirmação com os detalhes da máquina
+        const confirmacao = confirm(`Você está prestes a encerrar este chamado:\n\n📍 Local: ${dadosChamadoAtivo.maquina}\n⚠️ Ocorrência: ${dadosChamadoAtivo.problema}\n\nConfirma que o problema foi 100% resolvido?`);
+
+        if (!confirmacao) {
+            return; // Se o admin cancelar, a função para por aqui e não encerra o chamado
+        }
+
+        await fetch(`/api/chamados/resolver/${idChamadoAtivo}`, { method: 'POST' });
+        alert('Chamado finalizado com sucesso!');
+        resetarPainel();
+    }
+</script>
+</body>
+</html>

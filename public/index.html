@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Monitoramento - Help Desk</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f6f8fd 0%, #f1f5f9 100%);
+            margin: 0;
+            padding: 40px 20px;
+            color: #334155;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        .dashboard-container {
+            max-width: 1100px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 24px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.06);
+        }
+        h1 {
+            text-align: center;
+            color: #1e293b;
+            font-weight: 700;
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+
+        /* Sistema de Abas */
+        .tabs {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 15px;
+        }
+        .tab-btn {
+            background: none;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #64748b;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        .tab-btn:hover { background: #f8fafc; color: #1e293b; }
+        .tab-btn.active {
+            background: #eef2ff;
+            color: #6366f1;
+            box-shadow: inset 0 -3px 0 #6366f1;
+        }
+        .aba-content { display: none; animation: fadeIn 0.4s ease; }
+        .aba-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Filtros do Relatório */
+        .filtros-container {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+        .filtro-select {
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            color: #334155;
+            outline: none;
+            flex: 1;
+        }
+        .filtro-select:focus { border-color: #6366f1; }
+
+        table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        th, td { padding: 16px; text-align: left; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+        th { background-color: #f8fafc; color: #64748b; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+        th:first-child { border-top-left-radius: 12px; border-bottom-left-radius: 12px; }
+        th:last-child { border-top-right-radius: 12px; border-bottom-right-radius: 12px; }
+        tr:hover td { background-color: #f8fafc; }
+
+        .status-badge { display: inline-block; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .status-aguardando { background-color: #fef3c7; color: #d97706; }
+        .status-caminho { background-color: #d1fae5; color: #059669; }
+        .status-resolvido { background-color: #f1f5f9; color: #64748b; }
+
+        .refresh-aviso { text-align: center; font-size: 13px; color: #94a3b8; margin-top: 25px; }
+    </style>
+</head>
+<body>
+
+<div class="dashboard-container">
+    <h1>Painel Corporativo Help Desk</h1>
+
+    <!-- Botões das Abas -->
+    <div class="tabs">
+        <button class="tab-btn active" id="btn-aba-ativos" onclick="mudarAba('ativos')">🟢 Chamados Ativos</button>
+        <button class="tab-btn" id="btn-aba-historico" onclick="mudarAba('historico')">📊 Histórico e Relatórios</button>
+    </div>
+
+    <!-- ABA 1: CHAMADOS ATIVOS (TEMPO REAL) -->
+    <div id="aba-ativos" class="aba-content active">
+        <table>
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>Máquina / Local</th>
+                <th>Responsável</th>
+                <th>Descrição do Problema</th>
+                <th>Status Atual</th>
+            </tr>
+            </thead>
+            <tbody id="tabela-corpo">
+            <!-- Dados Ativos -->
+            </tbody>
+        </table>
+        <div class="refresh-aviso">Atualizando automaticamente em tempo real...</div>
+    </div>
+
+    <!-- ABA 2: HISTÓRICO E RELATÓRIOS -->
+    <div id="aba-historico" class="aba-content">
+
+        <div class="filtros-container">
+            <select id="filtro-periodo" class="filtro-select" onchange="aplicarFiltrosHistorico()">
+                <option value="hoje">📅 Hoje</option>
+                <option value="semana">📅 Últimos 7 dias</option>
+                <option value="todos" selected>📅 Todo o Histórico</option>
+            </select>
+
+            <select id="filtro-maquina" class="filtro-select" onchange="aplicarFiltrosHistorico()">
+                <option value="todas">🏭 Todas as Máquinas</option>
+                <!-- Máquinas serão injetadas aqui -->
+            </select>
+        </div>
+
+        <table>
+            <thead>
+            <tr>
+                <th>Data e Hora</th>
+                <th>Máquina / Local</th>
+                <th>Responsável</th>
+                <th>Descrição do Problema</th>
+                <th>Status</th>
+            </tr>
+            </thead>
+            <tbody id="tabela-historico">
+            <!-- Dados do Histórico -->
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<script>
+    let dadosHistoricoGlobal = [];
+
+    // --- CONTROLE DE ABAS ---
+    function mudarAba(nomeAba) {
+        document.querySelectorAll('.aba-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+        document.getElementById(`aba-${nomeAba}`).classList.add('active');
+        document.getElementById(`btn-aba-${nomeAba}`).classList.add('active');
+
+        if (nomeAba === 'historico') {
+            carregarHistorico();
+        }
+    }
+
+    // --- LÓGICA DA ABA DE ATIVOS ---
+    async function carregarChamadosAtivos() {
+        if (!document.getElementById('aba-ativos').classList.contains('active')) return;
+
+        try {
+            const response = await fetch('/api/chamados/todos');
+            const chamados = await response.json();
+            const tbody = document.getElementById('tabela-corpo');
+            tbody.innerHTML = '';
+
+            if (chamados.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#94a3b8; padding: 30px;">Nenhum chamado ativo no momento.</td></tr>';
+                return;
+            }
+
+            chamados.forEach(chamado => {
+                const tr = document.createElement('tr');
+                let badgeClass = chamado.status === 'AGUARDANDO' ? 'status-aguardando' : 'status-caminho';
+                let statusTexto = chamado.status === 'AGUARDANDO' ? 'Aguardando' : 'A Caminho';
+                let idResumido = chamado.id.substring(chamado.id.length - 6);
+
+                tr.innerHTML = `
+                        <td style="font-weight: 600; color: #6366f1;">#${idResumido}</td>
+                        <td>${chamado.maquina}</td>
+                        <td>${chamado.adminDestino}</td>
+                        <td>${chamado.problema}</td>
+                        <td><span class="status-badge ${badgeClass}">${statusTexto}</span></td>
+                    `;
+                tbody.appendChild(tr);
+            });
+        } catch (error) { console.error("Erro ao buscar chamados ativos:", error); }
+    }
+
+    // --- LÓGICA DA ABA DE HISTÓRICO ---
+    async function carregarHistorico() {
+        try {
+            const response = await fetch('/api/chamados/historico');
+            dadosHistoricoGlobal = await response.json();
+            preencherFiltroMaquinas(dadosHistoricoGlobal);
+            aplicarFiltrosHistorico();
+        } catch (error) { console.error("Erro ao carregar histórico:", error); }
+    }
+
+    function preencherFiltroMaquinas(chamados) {
+        const select = document.getElementById('filtro-maquina');
+        const maquinaSelecionada = select.value;
+
+        // Pega apenas as máquinas únicas da lista para não repetir no filtro
+        const maquinasUnicas = [...new Set(chamados.map(c => c.maquina))].sort();
+
+        select.innerHTML = '<option value="todas">🏭 Todas as Máquinas</option>';
+        maquinasUnicas.forEach(m => {
+            select.innerHTML += `<option value="${m}">${m}</option>`;
+        });
+
+        // Mantém a máquina que o usuário tinha selecionado antes de recarregar
+        if(maquinasUnicas.includes(maquinaSelecionada)) {
+            select.value = maquinaSelecionada;
+        }
+    }
+
+    function aplicarFiltrosHistorico() {
+        const periodo = document.getElementById('filtro-periodo').value;
+        const maquina = document.getElementById('filtro-maquina').value;
+
+        // Datas de corte para o filtro
+        const agora = new Date();
+        const inicioHoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate()).getTime();
+        const inicioSemana = inicioHoje - (7 * 24 * 60 * 60 * 1000);
+
+        const chamadosFiltrados = dadosHistoricoGlobal.filter(chamado => {
+            // Extrai a data do milissegundo escondido no ID
+            const timestamp = parseInt(chamado.id.split('-')[0]);
+
+            // Filtro de Período
+            let passaPeriodo = true;
+            if (periodo === 'hoje') passaPeriodo = timestamp >= inicioHoje;
+            if (periodo === 'semana') passaPeriodo = timestamp >= inicioSemana;
+
+            // Filtro de Máquina
+            let passaMaquina = true;
+            if (maquina !== 'todas') passaMaquina = chamado.maquina === maquina;
+
+            return passaPeriodo && passaMaquina;
+        });
+
+        renderizarTabelaHistorico(chamadosFiltrados);
+    }
+
+    function renderizarTabelaHistorico(chamados) {
+        const tbody = document.getElementById('tabela-historico');
+        tbody.innerHTML = '';
+
+        if (chamados.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#94a3b8; padding: 30px;">Nenhum chamado encontrado com esses filtros.</td></tr>';
+            return;
+        }
+
+        chamados.forEach(chamado => {
+            const tr = document.createElement('tr');
+
+            // Formatar Data
+            const dataObjeto = new Date(parseInt(chamado.id.split('-')[0]));
+            const dataFormatada = dataObjeto.toLocaleDateString('pt-BR') + ' às ' + dataObjeto.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+
+            let badgeClass = 'status-resolvido';
+            let statusTexto = 'Resolvido';
+
+            if (chamado.status === 'AGUARDANDO') { badgeClass = 'status-aguardando'; statusTexto = 'Aguardando'; }
+            if (chamado.status === 'A_CAMINHO') { badgeClass = 'status-caminho'; statusTexto = 'A Caminho'; }
+
+            tr.innerHTML = `
+                    <td style="font-weight: 500; color: #475569;">${dataFormatada}</td>
+                    <td style="font-weight: 600;">${chamado.maquina}</td>
+                    <td>${chamado.adminDestino}</td>
+                    <td>${chamado.problema}</td>
+                    <td><span class="status-badge ${badgeClass}">${statusTexto}</span></td>
+                `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // Inicialização
+    carregarChamadosAtivos();
+    setInterval(carregarChamadosAtivos, 3000);
+</script>
+</body>
+</html>
