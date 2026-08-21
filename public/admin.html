@@ -23,7 +23,9 @@
         .btn-sair { background: none; border: none; color: #ef4444; font-size: 13px; font-weight: 600; cursor: pointer; padding: 5px 10px; border-radius: 6px; transition: 0.2s; }
         .btn-sair:hover { background: #fee2e2; }
 
-        .log-box { background: #0f172a; color: #38bdf8; padding: 20px; height: 160px; overflow-y: auto; margin-bottom: 24px; border-radius: 12px; font-family: 'Courier New', Courier, monospace; font-size: 14px; white-space: pre-wrap; box-sizing: border-box; }
+        /* AQUI: Fonte aumentada para 18px, altura um pouco maior e espaçamento entre linhas (line-height) para facilitar leitura */
+        .log-box { background: #0f172a; color: #38bdf8; padding: 20px; height: 200px; overflow-y: auto; margin-bottom: 24px; border-radius: 12px; font-family: 'Courier New', Courier, monospace; font-size: 18px; line-height: 1.5; white-space: pre-wrap; box-sizing: border-box; }
+        
         .botoes-grid { display: flex; gap: 12px; }
         .btn-acao { flex: 1; padding: 14px; border: none; color: white; font-weight: 600; cursor: pointer; border-radius: 12px; font-size: 14px; transition: all 0.2s ease; }
         .btn-acao:disabled { background: #cbd5e1 !important; color: #94a3b8 !important; cursor: not-allowed; transform: none !important; }
@@ -65,6 +67,7 @@
 <script>
     let meuNome = null;
     let idChamadoAtivo = null;
+    let dadosChamadoAtivo = null; // NOVO: Variável para guardar os detalhes do chamado
     let loopMonitoramento = null;
 
     window.onload = () => {
@@ -92,6 +95,7 @@
 
     function resetarPainel() {
         idChamadoAtivo = null;
+        dadosChamadoAtivo = null;
         document.getElementById('logBox').innerText = 'Sessão iniciada. Aguardando chamados da produção...';
         document.getElementById('btnCaminho').disabled = true;
         document.getElementById('btnResolver').disabled = true;
@@ -105,7 +109,9 @@
                 const response = await fetch(`/api/chamados/pendente/${encodeURIComponent(meuNome)}`);
                 if (response.status === 200) {
                     const chamado = await response.json();
+                    
                     idChamadoAtivo = chamado.id;
+                    dadosChamadoAtivo = chamado; // Guardando a máquina e o problema na memória
 
                     document.getElementById('logBox').innerText = `🚨 NOVO CHAMADO RECEBIDO!\n\nID: #${chamado.id.substring(chamado.id.length - 6)}\nMáquina: ${chamado.maquina}\nProblema: ${chamado.problema}`;
                     document.getElementById('btnCaminho').disabled = false;
@@ -122,6 +128,13 @@
     }
 
     async function resolverChamado() {
+        // AQUI: Janela de confirmação com os detalhes da máquina
+        const confirmacao = confirm(`Você está prestes a encerrar este chamado:\n\n📍 Local: ${dadosChamadoAtivo.maquina}\n⚠️ Ocorrência: ${dadosChamadoAtivo.problema}\n\nConfirma que o problema foi 100% resolvido?`);
+        
+        if (!confirmacao) {
+            return; // Se o admin cancelar, a função para por aqui e não encerra o chamado
+        }
+
         await fetch(`/api/chamados/resolver/${idChamadoAtivo}`, { method: 'POST' });
         alert('Chamado finalizado com sucesso!');
         resetarPainel();
