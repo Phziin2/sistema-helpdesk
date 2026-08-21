@@ -3,7 +3,8 @@ const path = require('path');
 const { Pool } = require('pg'); // Importa o PostgreSQL da nuvem
 
 const app = express();
-const porta = 3000;
+// ATENÇÃO: Na nuvem (Render), precisamos pegar a porta dinâmica do process.env
+const porta = process.env.PORT || 3000;
 
 // Sua chave de conexão real do Neon conectada!
 const pool = new Pool({
@@ -34,7 +35,9 @@ async function inicializarBanco() {
 }
 inicializarBanco();
 
+// ==========================================
 // 2. ROTAS DA API
+// ==========================================
 
 app.post('/api/chamados/abrir', async (req, res) => {
     const id = Date.now().toString() + '-' + Math.floor(Math.random() * 1000);
@@ -42,11 +45,16 @@ app.post('/api/chamados/abrir', async (req, res) => {
 
     console.log(`\n🚨 [NOVO CHAMADO NA NUVEM] -> Para: ${adminDestino} | Máquina: ${maquina}`);
 
-    await pool.query(
-        `INSERT INTO chamados (id, adminDestino, maquina, problema, status) VALUES ($1, $2, $3, $4, $5)`,
-        [id, adminDestino, maquina, problema, 'AGUARDANDO']
-    );
-    res.send(id);
+    try {
+        await pool.query(
+            `INSERT INTO chamados (id, adminDestino, maquina, problema, status) VALUES ($1, $2, $3, $4, $5)`,
+            [id, adminDestino, maquina, problema, 'AGUARDANDO']
+        );
+        res.send(id);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send("Erro ao abrir chamado");
+    }
 });
 
 app.get('/api/chamados/pendente/:admin', async (req, res) => {
@@ -82,7 +90,18 @@ app.get('/api/chamados/todos', async (req, res) => {
     res.json(result.rows);
 });
 
+// NOVA ROTA PARA O RELATÓRIO DO DASHBOARD (Histórico Completo)
+app.get('/api/chamados/historico', async (req, res) => {
+    try {
+        // Puxa os últimos 500 chamados já registrados
+        const result = await pool.query(`SELECT * FROM chamados ORDER BY data_abertura DESC LIMIT 500`);
+        res.json(result.rows);
+    } catch (error) {
+        console.error("Erro ao buscar histórico:", error);
+        res.status(500).send("Erro no servidor");
+    }
+});
+
 app.listen(porta, () => {
-    console.log(`\n✅ SISTEMA DE SUPORTE ONLINE!`);
-    console.log(`🌐 Dashboard: http://localhost:${porta}/index.html`);
+    console.log(`\n✅ SISTEMA DE SUPORTE ONLINE! Rodando na porta ${porta}`);
 });
