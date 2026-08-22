@@ -30,7 +30,7 @@
             margin-top: 0;
             margin-bottom: 20px;
         }
-
+        
         /* Sistema de Abas */
         .tabs {
             display: flex;
@@ -83,7 +83,7 @@
             width: 200px;
         }
         .filtro-select:focus { border-color: #6366f1; }
-
+        
         .search-box {
             flex: 1;
             position: relative;
@@ -115,12 +115,12 @@
         th:first-child { border-top-left-radius: 12px; border-bottom-left-radius: 12px; }
         th:last-child { border-top-right-radius: 12px; border-bottom-right-radius: 12px; }
         tr:hover td { background-color: #f8fafc; }
-
+        
         .status-badge { display: inline-block; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
         .status-aguardando { background-color: #fef3c7; color: #d97706; }
         .status-caminho { background-color: #d1fae5; color: #059669; }
         .status-resolvido { background-color: #f1f5f9; color: #64748b; }
-
+        
         .refresh-aviso { text-align: center; font-size: 13px; color: #94a3b8; margin-top: 25px; }
     </style>
 </head>
@@ -156,7 +156,7 @@
 
     <!-- ABA 2: HISTÓRICO E PESQUISA -->
     <div id="aba-historico" class="aba-content">
-
+        
         <div class="filtros-container">
             <select id="filtro-periodo" class="filtro-select" onchange="aplicarFiltrosHistorico()">
                 <option value="hoje">📅 Hoje</option>
@@ -195,7 +195,7 @@
     function mudarAba(nomeAba) {
         document.querySelectorAll('.aba-content').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-
+        
         document.getElementById(`aba-${nomeAba}`).classList.add('active');
         document.getElementById(`btn-aba-${nomeAba}`).classList.add('active');
 
@@ -225,10 +225,13 @@
                 let statusTexto = chamado.status === 'AGUARDANDO' ? 'Aguardando' : 'A Caminho';
                 let idResumido = chamado.id.substring(chamado.id.length - 6);
 
+                // CORREÇÃO: Puxando o nome em minúsculo (admindestino)
+                let responsavel = chamado.admindestino || chamado.adminDestino || 'Desconhecido';
+
                 tr.innerHTML = `
                         <td style="font-weight: 600; color: #6366f1;">#${idResumido}</td>
                         <td>${chamado.maquina}</td>
-                        <td>${chamado.adminDestino}</td>
+                        <td style="font-weight: 500;">${responsavel}</td>
                         <td>${chamado.problema}</td>
                         <td><span class="status-badge ${badgeClass}">${statusTexto}</span></td>
                     `;
@@ -249,17 +252,14 @@
     function aplicarFiltrosHistorico() {
         const periodo = document.getElementById('filtro-periodo').value;
         const termoBusca = document.getElementById('busca-historico').value.toLowerCase();
-
-        // Datas de corte para o filtro de tempo
+        
         const agora = new Date();
         const inicioHoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate()).getTime();
         const inicioSemana = inicioHoje - (7 * 24 * 60 * 60 * 1000);
 
         const chamadosFiltrados = dadosHistoricoGlobal.filter(chamado => {
-
-            // 1. Verifica o período (Matemática da Data baseada no ID)
+            
             let timestamp = 0;
-            // Se o ID for o número de milissegundos (novo padrão), ele lê. Se não, assume a data atual.
             if(chamado.id.includes('-')) {
                 timestamp = parseInt(chamado.id.split('-')[0]);
             } else {
@@ -270,12 +270,14 @@
             if (periodo === 'hoje') passaPeriodo = timestamp >= inicioHoje;
             if (periodo === 'semana') passaPeriodo = timestamp >= inicioSemana;
 
-            // 2. Verifica a busca de texto Inteligente
+            // CORREÇÃO: Filtro também lendo em minúsculo
+            let responsavel = chamado.admindestino || chamado.adminDestino || '';
             let passaBusca = true;
+
             if (termoBusca !== '') {
                 passaBusca = (chamado.maquina && chamado.maquina.toLowerCase().includes(termoBusca)) ||
-                    (chamado.problema && chamado.problema.toLowerCase().includes(termoBusca)) ||
-                    (chamado.adminDestino && chamado.adminDestino.toLowerCase().includes(termoBusca));
+                             (chamado.problema && chamado.problema.toLowerCase().includes(termoBusca)) ||
+                             (responsavel.toLowerCase().includes(termoBusca));
             }
 
             return passaPeriodo && passaBusca;
@@ -295,8 +297,7 @@
 
         chamados.forEach(chamado => {
             const tr = document.createElement('tr');
-
-            // Formatar Data
+            
             let dataFormatada = 'Data Indisponível';
             if(chamado.id.includes('-')) {
                 const dataObjeto = new Date(parseInt(chamado.id.split('-')[0]));
@@ -308,14 +309,17 @@
 
             let badgeClass = 'status-resolvido';
             let statusTexto = 'Resolvido';
-
+            
             if (chamado.status === 'AGUARDANDO') { badgeClass = 'status-aguardando'; statusTexto = 'Aguardando'; }
             if (chamado.status === 'A_CAMINHO') { badgeClass = 'status-caminho'; statusTexto = 'A Caminho'; }
+
+            // CORREÇÃO: Exibição na tabela lendo em minúsculo
+            let responsavel = chamado.admindestino || chamado.adminDestino || 'Desconhecido';
 
             tr.innerHTML = `
                     <td style="font-weight: 500; color: #475569;">${dataFormatada}</td>
                     <td style="font-weight: 600;">${chamado.maquina}</td>
-                    <td>${chamado.adminDestino}</td>
+                    <td style="font-weight: 500;">${responsavel}</td>
                     <td>${chamado.problema}</td>
                     <td><span class="status-badge ${badgeClass}">${statusTexto}</span></td>
                 `;
@@ -323,7 +327,6 @@
         });
     }
 
-    // Inicialização
     carregarChamadosAtivos();
     setInterval(carregarChamadosAtivos, 3000);
 </script>
